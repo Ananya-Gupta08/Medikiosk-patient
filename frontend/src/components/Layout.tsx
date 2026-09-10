@@ -1,0 +1,5 @@
+import {CalendarDays,HeartPulse,Home,MessageCircle,NotebookTabs,WifiOff} from 'lucide-react'
+export type Page='home'|'calendar'|'medicines'|'records'|'assistant'
+const nav=[['home',Home,'Home'],['calendar',CalendarDays,'Calendar'],['medicines',HeartPulse,'Medicines'],['records',NotebookTabs,'Records'],['assistant',MessageCircle,'Assistant']] as const
+export function Layout({page,setPage,children}:{page:Page;setPage:(p:Page)=>void;children:React.ReactNode}){const appName=import.meta.env.VITE_APP_NAME||'Patient Care';return <><header><div className="brand"><span className="brand-mark">+</span>{appName}</div><span className="private">Private health information</span></header>{!navigator.onLine&&<div className="offline" role="status"><WifiOff/> You are offline. Information may not be current.</div>}<main>{children}</main><nav className="bottom-nav" aria-label="Main navigation">{nav.map(([id,Icon,label])=><button key={id} aria-current={page===id?'page':undefined} onClick={()=>setPage(id)}><Icon/><span>{label}</span></button>)}</nav></>}
+

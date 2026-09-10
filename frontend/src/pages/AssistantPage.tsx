@@ -1,0 +1,16 @@
+import {FormEvent,useEffect,useRef,useState} from 'react'
+import {Send} from 'lucide-react'
+import {api} from '../api'
+import {ChatMessage,Session} from '../types'
+import {ErrorState,Loading} from '../components/States'
+
+export function AssistantPage(){
+  const [session,setSession]=useState<Session>();const [messages,setMessages]=useState<ChatMessage[]>([])
+  const [answer,setAnswer]=useState('');const [busy,setBusy]=useState(true);const [error,setError]=useState('')
+  const input=useRef<HTMLTextAreaElement>(null)
+  useEffect(()=>{void openCheckin()},[])
+  async function openCheckin(){setBusy(true);setError('');try{const sessions=await api.get<Session[]>('/api/me/followups');const active=sessions.find(item=>item.status==='active');if(active){setSession(active);setMessages(await api.get(`/api/me/followups/${active.id}/messages`))}else{const result=await api.post<{session:Session;message:ChatMessage}>('/api/me/followups/start');setSession(result.session);setMessages([result.message])}setTimeout(()=>input.current?.focus(),50)}catch(cause){setError(cause instanceof Error?cause.message:'The health check-in is unavailable right now.')}finally{setBusy(false)}}
+  async function submit(event:FormEvent){event.preventDefault();if(!answer.trim()||!session)return;const text=answer.trim();setAnswer('');setBusy(true);setError('');const patientMessage:ChatMessage={id:`local-${Date.now()}`,role:'patient',message:text,created_at:new Date().toISOString()};setMessages(current=>[...current,patientMessage]);try{const result=await api.post<{session:Session;message:ChatMessage}>(`/api/me/followups/${session.id}/messages`,{message:text});setSession(result.session);setMessages(current=>[...current,result.message]);setTimeout(()=>input.current?.focus(),50)}catch(cause){setMessages(current=>current.filter(item=>item.id!==patientMessage.id));setAnswer(text);setError(cause instanceof Error?cause.message:'Your answer could not be sent. Please try again.')}finally{setBusy(false)}}
+  if(busy&&!session)return <Loading/>
+  return <><div className="page-title"><h1>Recovery check-in</h1><p>Answer one short question at a time. This does not replace medical care.</p></div><div className="privacy-note">Your answers stay in this patient app and are not sent to your doctor.</div>{error&&<ErrorState message={error} onRetry={()=>void openCheckin()}/>} {session&&<><div className="chat" aria-live="polite" aria-label="Health check-in conversation">{messages.map(message=><div className={`bubble ${message.role}`} key={message.id}><strong>{message.role==='assistant'?'Health assistant':'You'}</strong><p>{message.message}</p></div>)}{busy&&<div className="bubble assistant"><p>Thinking…</p></div>}</div>{session.status==='active'?<form className="reply" onSubmit={submit}><label htmlFor="checkin-answer">Type your answer</label><textarea ref={input} id="checkin-answer" value={answer} onChange={event=>setAnswer(event.target.value)} maxLength={1000} rows={4} placeholder="For example: My pain is better today" disabled={busy}/><button className="primary wide" disabled={busy||!answer.trim()}><Send/> Send my answer</button></form>:<p className="complete">Your check-in is complete for today.</p>}</>}</>
+}

@@ -1,0 +1,3 @@
+import {useState} from 'react';import {Layout,Page} from './components/Layout';import {HomePage} from './pages/HomePage';import {CalendarPage} from './pages/CalendarPage';import {MedicinesPage} from './pages/MedicinesPage';import {RecordsPage} from './pages/RecordsPage';import {AssistantPage} from './pages/AssistantPage'
+export default function App(){const [page,setPage]=useState<Page>('home');const content={home:<HomePage go={setPage}/>,calendar:<CalendarPage/>,medicines:<MedicinesPage/>,records:<RecordsPage/>,assistant:<AssistantPage/>}[page];return <Layout page={page} setPage={setPage}>{content}</Layout>}
+
