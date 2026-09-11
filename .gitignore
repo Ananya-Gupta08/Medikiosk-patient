@@ -13,6 +13,10 @@ dist/
 .vercel/
 .deploy-backend/
 .deploy-frontend/
+.deploy-vercel-root/
 *.db
 *.sqlite3
 .DS_Store
+
+.vercel
+.env*.local

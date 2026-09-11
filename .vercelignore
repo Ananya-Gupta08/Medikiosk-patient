@@ -1,0 +1,13 @@
+backend/.venv/
+backend/.pytest_cache/
+backend/**/__pycache__/
+backend/tests/
+backend/scripts/
+backend/*.db
+backend/*.sqlite3
+backend/.env
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+.deploy-backend/
+.deploy-frontend/

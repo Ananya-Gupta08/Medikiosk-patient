@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     patient_pwa_database_url: str = "sqlite:///./patient_pwa.db"
     mock_patient_id: str = "TEST_PATIENT_001"
     gemini_api_key: str = ""
-    gemini_model: str = "gemini-2.5-flash"
+    gemini_model: str = "gemini-3.5-flash"
     assistant_mode: str = "mock"
     frontend_origin: str = "http://localhost:5173"
     vapid_public_key: str = ""
