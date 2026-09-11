@@ -18,6 +18,7 @@ MIGRATIONS = [
     ROOT / "migrations" / "002_synthetic_demo_seed.sql",
     ROOT / "migrations" / "003_patient_history_edits.sql",
     ROOT / "migrations" / "004_patient_pwa_synthetic_ocr_history.sql",
+    ROOT / "migrations" / "005_rich_history_demo_seed.sql",
 ]
 TABLES = [
     "patient_pwa_medication_logs",

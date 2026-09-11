@@ -10,6 +10,9 @@ __pycache__/
 node_modules/
 dist/
 *.tsbuildinfo
+.vercel/
+.deploy-backend/
+.deploy-frontend/
 *.db
 *.sqlite3
 .DS_Store
