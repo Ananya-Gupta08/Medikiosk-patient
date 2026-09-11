@@ -7,12 +7,17 @@ import os
 from pathlib import Path
 
 import psycopg
+import sys
+sys.path.insert(0, str(Path(__file__).parents[1]))
+from app.config import get_settings
 
 
 ROOT = Path(__file__).parents[1]
 MIGRATIONS = [
     ROOT / "migrations" / "001_patient_pwa_owned_tables.sql",
     ROOT / "migrations" / "002_synthetic_demo_seed.sql",
+    ROOT / "migrations" / "003_patient_history_edits.sql",
+    ROOT / "migrations" / "004_patient_pwa_synthetic_ocr_history.sql",
 ]
 TABLES = [
     "patient_pwa_medication_logs",
@@ -20,11 +25,13 @@ TABLES = [
     "patient_pwa_push_subscriptions",
     "patient_pwa_followup_sessions",
     "patient_pwa_followup_messages",
+    "patient_pwa_history_edits",
 ]
 
 
 def main() -> None:
-    database_url = os.environ.get("DATABASE_URL")
+    settings=get_settings()
+    database_url = os.environ.get("DATABASE_URL") or settings.database_url or settings.patient_pwa_database_url
     if not database_url:
         raise SystemExit("DATABASE_URL is required")
     with psycopg.connect(database_url, connect_timeout=15) as connection:

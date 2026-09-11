@@ -10,3 +10,6 @@ class PushSubscriptionInput(BaseModel):
     expirationTime: int | None = None
     keys: dict[str, str]
 
+
+class HistoryUpdateInput(BaseModel):
+    history: str = Field(min_length=1, max_length=10000)

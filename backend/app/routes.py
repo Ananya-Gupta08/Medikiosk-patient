@@ -1,8 +1,8 @@
 from datetime import date, datetime
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
-from app.dependencies import gemini, repository, store
+from app.dependencies import gemini, history_repository, repository, store
 from app.identity import Identity, current_identity
-from app.schemas import MessageInput, PushSubscriptionInput
+from app.schemas import HistoryUpdateInput, MessageInput, PushSubscriptionInput
 from app.services.followup import FollowupService
 from app.services.gemini_service import AssistantUnavailable
 from app.services.scheduling import all_occurrences
@@ -36,6 +36,20 @@ def dashboard(day: date | None = Query(default=None), ctx=Depends(context)):
 def records(ctx=Depends(context)):
     identity, _, repo, _ = ctx
     return repo.get_patient_consultations(identity.patient_id)
+
+
+@router.get("/history")
+def history(ctx=Depends(context)):
+    identity, _, _, _ = ctx
+    return history_repository().list_history(identity.patient_id)
+
+
+@router.put("/history/{document_id}")
+def update_history(document_id: str, body: HistoryUpdateInput, ctx=Depends(context)):
+    identity, _, _, _ = ctx
+    item=history_repository().update_history(identity.patient_id,document_id,body.history.strip())
+    if not item: raise HTTPException(404,"History document not found")
+    return item
 
 
 @router.get("/medications")

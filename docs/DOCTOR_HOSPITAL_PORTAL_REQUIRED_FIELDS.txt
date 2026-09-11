@@ -1,0 +1,314 @@
+MEDIKIOSK PATIENT PWA
+DOCTOR / HOSPITAL PORTAL DATA REQUIREMENTS
+============================================================
+
+Purpose
+-------
+This document lists the database fields and integration details required by
+the Patient PWA from the doctor/hospital portal. Clinical records remain the
+source of truth in Medikiosk. The Patient PWA must receive only records that
+belong to the authenticated patient.
+
+
+1. PATIENT IDENTITY
+-------------------
+Required:
+- patient_id: canonical shared patient identifier (text or UUID)
+- patient_name: patient display name
+
+Recommended/optional:
+- abha_number: normalized ABHA identifier, if used
+- date_of_birth: date
+- gender: controlled text value
+- preferred_language: text
+- timezone: IANA timezone, for example Asia/Kolkata
+- phone_number: text, only if required
+
+The team must provide the mapping between the authenticated Supabase user/JWT
+and patient_id. A patient ID supplied in a URL must never establish identity.
+
+
+2. DOCTOR INFORMATION
+---------------------
+Required:
+- doctor_name
+
+Recommended/optional:
+- doctor_id
+- speciality
+- facility_id
+- facility_name
+
+
+3. CONSULTATION
+---------------
+Required:
+- consultation_id
+- patient_id
+- consultation_datetime (timestamptz)
+- doctor_name or doctor_id relationship
+- diagnosis or final diagnosis relationship
+- created_at
+
+Recommended/optional:
+- location
+- consultation_status (draft/completed/cancelled)
+- diagnosis_code
+- clinical_summary
+- updated_at
+
+The Patient PWA should normally receive completed consultations only.
+
+
+4. PRESCRIPTION
+---------------
+Required:
+- prescription_id
+- consultation_id
+- patient_id
+- prescribed_at
+
+Recommended/optional:
+- prescribed_by_doctor_id
+- prescription_status
+- prescription_notes
+- prescription_document_id or document reference
+
+The Patient PWA reads prescriptions but does not edit them.
+
+
+5. PRESCRIBED MEDICINES
+-----------------------
+Required:
+- prescription_medicine_id: unique prescription-line identifier
+- prescription_id
+- medicine_name
+- strength/dosage, for example 500 mg
+- dose_quantity, for example 1 tablet
+- frequency_text, for example 3 times daily
+- times_per_day: normalized integer, strongly recommended
+- duration_days
+- start_date
+
+Recommended/optional:
+- medicine_id
+- dose_unit
+- end_date
+- instructions, for example After food
+- administration_route
+- exact_medication_times
+- medicine_status
+- created_at
+- updated_at
+
+The portal must explicitly distinguish doctor-prescribed exact times from
+general frequency and patient-selected reminder times.
+
+
+6. DIAGNOSIS RECORDS
+--------------------
+If diagnoses are stored in a separate table, provide:
+- diagnosis_id
+- consultation_id
+- patient_id
+- diagnosis_text
+- diagnosis_code (optional)
+- diagnosis_type (optional)
+- is_primary
+- diagnosed_at
+- diagnosis_status
+
+The Patient Assistant should receive only the primary/final diagnosis, not
+preliminary, superseded, or deleted diagnoses.
+
+
+7. MEDICAL AND OCR DOCUMENTS
+----------------------------
+The discovered source table is:
+
+public.medical_documents
+
+Discovered columns:
+- id
+- patient_id
+- ocr_document_id
+- document_type
+- extraction_timestamp
+- clinical_document_date
+- confidence_score
+- structured_data
+- extraction_errors
+- complete_ocr_result
+- original_file_reference
+- created_at
+- updated_at
+- indexing_status
+- indexing_attempts
+- indexing_error
+- indexed_at
+- encounter_id
+
+Relevant keys discovered inside structured_data:
+- clinical_notes
+- diagnosis
+- final_diagnosis
+- findings
+- impression
+- medications
+- discharge_medications
+- discharge_advice
+- recommendations
+- test_results
+- tests
+- vital_signs
+- extra_notes
+- remarks
+- other_info
+- patient_info
+- metadata
+
+The team must provide a stable JSON schema describing the value type and
+meaning of every structured_data field.
+
+
+8. ORIGINAL DOCUMENT ACCESS
+---------------------------
+Required integration information:
+- Supabase Storage bucket name
+- storage object path/reference
+- MIME type
+- document category
+- signed URL generation method
+- signed URL expiration time
+- patient authorization rule
+
+Medical documents must not use permanent public URLs.
+
+
+9. PATIENT-EDITABLE HISTORY
+---------------------------
+The original OCR result remains immutable. Patient corrections are stored
+separately in:
+
+patient_pwa_history_edits
+
+Fields:
+- id
+- patient_id
+- medical_document_id
+- edited_history
+- created_at
+- updated_at
+
+The patient-facing version may display the correction, while preserving the
+original OCR content for traceability.
+
+
+10. REQUIRED RELATIONSHIPS
+--------------------------
+The team must document the keys and cardinality for:
+
+patient
+  -> consultations
+      -> diagnoses
+      -> prescriptions
+          -> prescription medicines
+      -> medical documents
+  -> medical documents
+
+For each relationship, provide:
+- primary key
+- foreign key
+- one-to-one or one-to-many relationship
+- deletion behavior
+- soft-delete behavior
+- active/visible status rules
+
+
+11. AUTHENTICATION AND AUTHORIZATION
+------------------------------------
+Required:
+- Supabase Auth user identifier
+- JWT claim containing or mapping to patient_id
+- auth.users.id to clinical patient_id mapping
+- patient Row Level Security policies
+- doctor/hospital Row Level Security policies
+- service-role usage rules
+- token expiration and refresh behavior
+- handling of inactive, merged, or duplicate patient records
+
+
+12. RECOMMENDED STABLE DATABASE VIEWS
+-------------------------------------
+To protect the Patient PWA from schema changes, the hospital team should
+consider providing read-only views such as:
+
+- patient_pwa_patient_view
+- patient_pwa_consultations_view
+- patient_pwa_prescriptions_view
+- patient_pwa_medications_view
+- patient_pwa_medical_documents_view
+
+These views should expose only fields required by the Patient PWA.
+
+
+13. ENUMERATIONS AND DATA RULES
+-------------------------------
+Please document:
+- consultation status values
+- prescription status values
+- medication status values
+- diagnosis type and status values
+- medication frequency formats
+- dosage and unit formats
+- medical document types
+- timezone policy
+- date/time storage policy
+- nullability rules
+- soft-delete fields
+- identifier formats (UUID or text)
+- whether exact medication times are clinical instructions
+
+
+14. MINIMUM INTEGRATION DATASET
+-------------------------------
+- patient_id
+- patient_name
+- consultation_id
+- consultation_datetime
+- doctor_name
+- location
+- diagnosis
+- prescription_id
+- prescription_medicine_id
+- medicine_name
+- strength/dosage
+- dose_quantity
+- frequency_text
+- times_per_day
+- duration_days
+- start_date
+- instructions
+- exact_medication_times (when explicitly prescribed)
+- medical_document_id
+- document_type
+- clinical_document_date
+- structured_data
+- original_file_reference
+
+
+15. ITEMS STILL REQUIRED FROM THE PORTAL TEAM
+---------------------------------------------
+1. Exact clinical table names and column mappings.
+2. Canonical patient identifier and ABHA normalization rules.
+3. Supabase JWT-to-patient mapping.
+4. Row Level Security policies.
+5. Medication frequency, duration, and exact-time semantics.
+6. Stable structured_data JSON schema for OCR results.
+7. Document storage and signed URL policy.
+8. Soft-delete and record visibility rules.
+9. A staging dataset containing synthetic test records.
+10. A least-privilege database role with clinical read access and write access
+    only to approved patient_pwa_* tables.
+
+END OF DOCUMENT
