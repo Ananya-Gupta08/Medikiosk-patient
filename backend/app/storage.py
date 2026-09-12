@@ -25,6 +25,11 @@ CREATE TABLE IF NOT EXISTS patient_pwa_followup_messages (
  id TEXT PRIMARY KEY, session_id TEXT NOT NULL, role TEXT NOT NULL,
  message TEXT NOT NULL, created_at TEXT NOT NULL,
  FOREIGN KEY(session_id) REFERENCES patient_pwa_followup_sessions(id));
+CREATE TABLE IF NOT EXISTS patient_pwa_appointment_requests (
+ id TEXT PRIMARY KEY, patient_id TEXT NOT NULL, consultation_reference TEXT NOT NULL,
+ reason TEXT NOT NULL, status TEXT NOT NULL CHECK(status='requested'),
+ requested_at TEXT NOT NULL, created_at TEXT NOT NULL,
+ UNIQUE(patient_id, consultation_reference, status));
 """
 
 
@@ -108,6 +113,18 @@ class PwaStore:
         with self.connection() as db:
             db.execute("UPDATE patient_pwa_followup_sessions SET status='complete', completed_at=? WHERE id=?", (datetime.now(timezone.utc).isoformat(), session_id))
 
+    def create_appointment_request(self, patient_id: str, consultation_id: str, reason: str) -> dict:
+        now = datetime.now(timezone.utc).isoformat()
+        with self.connection() as db:
+            db.execute("INSERT OR IGNORE INTO patient_pwa_appointment_requests VALUES (?,?,?,?,?,?,?)", (str(uuid4()), patient_id, consultation_id, reason, "requested", now, now))
+            row = db.execute("SELECT id,consultation_reference,reason,status,requested_at FROM patient_pwa_appointment_requests WHERE patient_id=? AND consultation_reference=? AND status='requested'", (patient_id, consultation_id)).fetchone()
+        return dict(row)
+
+    def appointment_requests(self, patient_id: str) -> list[dict]:
+        with self.connection() as db:
+            rows = db.execute("SELECT id,consultation_reference,reason,status,requested_at FROM patient_pwa_appointment_requests WHERE patient_id=? ORDER BY requested_at DESC", (patient_id,)).fetchall()
+        return [dict(row) for row in rows]
+
 
 class PostgresPwaStore:
     """Supabase/PostgreSQL store for Patient-PWA-owned data only."""
@@ -179,6 +196,17 @@ class PostgresPwaStore:
     def complete_session(self, session_id: str):
         with self.connection() as db:
             db.execute("UPDATE patient_pwa_followup_sessions SET status='complete',completed_at=now() WHERE id=%s", (session_id,))
+
+    def create_appointment_request(self, patient_id: str, consultation_id: str, reason: str) -> dict:
+        with self.connection() as db:
+            db.execute("INSERT INTO patient_pwa_appointment_requests (id,patient_id,consultation_reference,reason,status,requested_at,created_at) VALUES (%s,%s,%s,%s,'requested',now(),now()) ON CONFLICT DO NOTHING", (str(uuid4()),patient_id,consultation_id,reason))
+            db.execute("SELECT id,consultation_reference,reason,status,requested_at FROM patient_pwa_appointment_requests WHERE patient_id=%s AND consultation_reference=%s AND status='requested'", (patient_id,consultation_id)); row=db.fetchone()
+        return {**row,"id":str(row["id"]),"requested_at":row["requested_at"].isoformat()}
+
+    def appointment_requests(self, patient_id: str) -> list[dict]:
+        with self.connection() as db:
+            db.execute("SELECT id,consultation_reference,reason,status,requested_at FROM patient_pwa_appointment_requests WHERE patient_id=%s ORDER BY requested_at DESC", (patient_id,)); rows=db.fetchall()
+        return [{**row,"id":str(row["id"]),"requested_at":row["requested_at"].isoformat()} for row in rows]
 
 
 def make_pwa_store(url: str):

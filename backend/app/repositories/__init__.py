@@ -8,6 +8,5 @@ def make_medikiosk_repository(settings: Settings) -> MedikioskRepository:
     if settings.data_source == "mock":
         return MockMedikioskRepository()
     if settings.data_source == "postgres":
-        return PostgresMedikioskRepository(settings.database_url)
+        return PostgresMedikioskRepository(settings.database_url or settings.patient_pwa_database_url)
     raise RuntimeError("DATA_SOURCE must be 'mock' or 'postgres'")
-

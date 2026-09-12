@@ -9,6 +9,9 @@ class MedikioskRepository(ABC):
     def get_patient(self, patient_id: str) -> Patient | None: ...
 
     @abstractmethod
+    def get_patient_by_abha(self, abha_number: str) -> Patient | None: ...
+
+    @abstractmethod
     def get_patient_consultations(self, patient_id: str) -> list[Consultation]: ...
 
     def get_latest_consultation(self, patient_id: str) -> Consultation | None:
@@ -23,4 +26,3 @@ class MedikioskRepository(ABC):
 
     def get_patient_prescription(self, patient_id: str, consultation_id: str) -> Consultation | None:
         return next((c for c in self.get_patient_consultations(patient_id) if c.id == consultation_id), None)
-

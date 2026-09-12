@@ -61,6 +61,19 @@ class PostgresMedikioskRepository(MedikioskRepository):
             ).fetchone()
         return Patient(id=str(row["id"]), name=row["display_name"] or "Patient") if row else None
 
+    def get_patient_by_abha(self, abha_number: str) -> Patient | None:
+        normalized = "".join(character for character in abha_number if character.isdigit())
+        if len(normalized) != 14:
+            return None
+        with self._connect() as connection, connection.transaction():
+            connection.execute("SET TRANSACTION READ ONLY")
+            row = connection.execute(
+                """SELECT id, display_name FROM patients
+                   WHERE regexp_replace(abha_id, '[^0-9]', '', 'g') = %s""",
+                (normalized,),
+            ).fetchone()
+        return Patient(id=str(row["id"]), name=row["display_name"] or "Patient") if row else None
+
     def get_patient_consultations(self, patient_id: str) -> list[Consultation]:
         with self._connect() as connection, connection.transaction():
             connection.execute("SET TRANSACTION READ ONLY")

@@ -10,7 +10,7 @@ You are not a doctor. Ask exactly ONE short question at a time in simple languag
 Adapt to prior answers, do not repeat answered questions, and focus on recovery, relevant symptoms, and whether they are improving or worsening.
 Never diagnose, prescribe, recommend changing dose/frequency, tell the patient to start or stop medicine, contradict the treating doctor, fabricate facts, claim the patient is safe, or claim answers were sent to a doctor.
 If an answer suggests a serious or urgent problem, clearly direct the patient to appropriate urgent medical help; do not manage it yourself.
-Finish after 4-6 useful questions. Return JSON only: {"message": string, "status": "continue"|"complete"}."""
+Finish the clinical questions after 4-6 useful questions. Do not ask whether the patient has fully recovered; the application asks that final question deterministically. Return JSON only: {"message": string, "status": "continue"|"complete"}."""
 
 
 class AssistantUnavailable(Exception):

@@ -14,6 +14,7 @@ Patient actions are stored separately in:
 - `patient_pwa_followup_sessions`
 - `patient_pwa_followup_messages`
 - `patient_pwa_history_edits`
+- `patient_pwa_appointment_requests`
 
 Original OCR output is immutable. Patient corrections reference it through `patient_id` and `medical_document_id`.
 
@@ -36,6 +37,25 @@ For development, `IDENTITY_SOURCE=mock` accepts only the single configured
 patient. Production must use verified Supabase JWT claims before real patient
 access is enabled. `PATIENT_PWA_DATABASE_URL` controls Patient-PWA-owned
 Supabase storage.
+
+### ABHA demo login
+
+`IDENTITY_SOURCE=abha_demo` maps a normalized 14-digit entry to
+`patients.abha_id`, then stores only the canonical `patients.id` in a signed,
+expiring, HttpOnly session cookie. The frontend cannot choose a patient ID and
+does not store the token in JavaScript storage.
+
+This mode is for a supervised hackathon demonstration only. Knowing an ABHA
+number is not proof of identity. Public production use requires verified ABHA
+OTP or Supabase Auth and an `auth.users.id` to `patients.id` mapping.
+
+### Appointment request after check-in
+
+The application, not Gemini, asks the final yes/no recovery question. A
+negative answer creates one idempotent `patient_pwa_appointment_requests` row
+for the patient and source encounter. It does not change an encounter, book a
+time, or claim that a doctor was notified. Portal staff must acknowledge and
+schedule it through a future agreed integration.
 
 ## Confirmed clinical relationship mapping
 

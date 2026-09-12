@@ -7,6 +7,7 @@ class MockMedikioskRepository(MedikioskRepository):
     """Synthetic data only. Mirrors the future Postgres adapter contract."""
 
     patient = Patient(id="TEST_PATIENT_001", name="Ramesh Kumar")
+    synthetic_abha = "99999999999999"
     consultation = Consultation(
         id="CONSULTATION_001",
         occurred_at=datetime(2026, 9, 10, 10, 30),
@@ -22,6 +23,9 @@ class MockMedikioskRepository(MedikioskRepository):
     def get_patient(self, patient_id: str) -> Patient | None:
         return self.patient if patient_id == self.patient.id else None
 
+    def get_patient_by_abha(self, abha_number: str) -> Patient | None:
+        normalized = "".join(character for character in abha_number if character.isdigit())
+        return self.patient if normalized == self.synthetic_abha else None
+
     def get_patient_consultations(self, patient_id: str) -> list[Consultation]:
         return [self.consultation] if patient_id == self.patient.id else []
-

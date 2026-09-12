@@ -50,7 +50,7 @@ Open `http://localhost:5173`. The API docs are at `http://localhost:8000/api/doc
 
 ## Environment
 
-Backend: `DATA_SOURCE`, `DATABASE_URL`, `PATIENT_PWA_DATABASE_URL`, `MOCK_PATIENT_ID`, `GEMINI_API_KEY`, `GEMINI_MODEL`, `FRONTEND_ORIGIN`, and VAPID private/public/subject variables. Frontend: `VITE_API_BASE_URL`, `VITE_APP_NAME`, and public `VITE_VAPID_PUBLIC_KEY`. Secrets never use the `VITE_` prefix.
+Backend: `DATA_SOURCE`, `IDENTITY_SOURCE`, `SESSION_SECRET`, `SESSION_MAX_AGE_SECONDS`, `DATABASE_URL`, `PATIENT_PWA_DATABASE_URL`, `MOCK_PATIENT_ID`, `GEMINI_API_KEY`, `GEMINI_MODEL`, `FRONTEND_ORIGIN`, and VAPID private/public/subject variables. Frontend: `VITE_API_BASE_URL`, `VITE_APP_NAME`, and public `VITE_VAPID_PUBLIC_KEY`. Secrets never use the `VITE_` prefix.
 
 Without `GEMINI_API_KEY`, starting a check-in returns a safe 503 while all other features work. Push needs a VAPID keypair plus a production reminder worker that selects due schedules and calls Web Push. Permission is requested only when the patient chooses “Turn on reminders.” API responses use `no-store`; the PWA service worker uses network-only behavior for `/api`.
 
@@ -70,12 +70,12 @@ Tests do not call Gemini. They cover repository normalization, schedule frequenc
 
 ## Real Supabase mode
 
-See [the database integration contract](docs/MEDIKIOSK_DATABASE_INTEGRATION.md). The real adapter is intentionally fail-closed until the schema is supplied. Implement mappings there, add verified Supabase identity, implement a Postgres owned-data store, apply only the supplied owned-table migration, then set `DATA_SOURCE=postgres`. Do not expose the database service key to the browser.
+See [the database integration contract](docs/MEDIKIOSK_DATABASE_INTEGRATION.md). The encounters-based clinical adapter and PostgreSQL owned-data store are implemented. For a supervised demo, set `DATA_SOURCE=postgres` and `IDENTITY_SOURCE=abha_demo`; public production requires verified ABHA OTP or Supabase Auth before enabling real patient access. Do not expose the database service key to the browser.
 
 ## Known limitations
 
-- Development identity is a clearly isolated mock header/provider, not production authentication.
-- Shared Medikiosk mapping and the Postgres owned-data store await the actual schema and access policy.
+- ABHA-number-only login is demo access, not production authentication; verified OTP/Auth and RLS are still required.
+- Appointment requests are stored but are not yet consumed or scheduled by the hospital portal.
 - Push subscription capture and failure UX are implemented; scheduled delivery requires deployment of a worker/cron job and VAPID credentials. Expired endpoints should be deleted when Web Push returns 404/410.
 - The manifest uses a neutral SVG placeholder. Supply branded 192px and 512px PNG icons when the final name/identity is chosen.
 - PWA installability and notification behavior require HTTPS outside localhost and vary by browser, especially iOS.

@@ -18,8 +18,24 @@ def test_followup_gets_diagnosis_persists_messages_and_completes():
     session, first = service.start("TEST_PATIENT_001")
     assert assistant.calls[0][0] == "Post-operative prostate surgery"
     session, last = service.respond("TEST_PATIENT_001", session["id"], "I feel better")
+    assert last["message"].startswith("Have you recovered")
+    session, last = service.respond("TEST_PATIENT_001", session["id"], "Yes")
     assert session["status"] == "complete"
-    assert [x["role"] for x in store.messages(session["id"])] == ["assistant", "patient", "assistant"]
+    assert [x["role"] for x in store.messages(session["id"])] == ["assistant", "patient", "assistant", "patient", "assistant"]
+
+
+def test_not_recovered_creates_one_appointment_request():
+    store, assistant = PwaStore("sqlite:///:memory:"), FakeAssistant()
+    service = FollowupService(MockMedikioskRepository(), store, assistant)
+    session, _ = service.start("TEST_PATIENT_001")
+    session, _ = service.respond("TEST_PATIENT_001", session["id"], "I still have some pain")
+    session, message = service.respond("TEST_PATIENT_001", session["id"], "No, not yet")
+    assert session["status"] == "complete"
+    assert "appointment request has been created" in message["message"].lower()
+    requests = store.appointment_requests("TEST_PATIENT_001")
+    assert len(requests) == 1
+    store.create_appointment_request("TEST_PATIENT_001", "CONSULTATION_001", "duplicate")
+    assert len(store.appointment_requests("TEST_PATIENT_001")) == 1
 
 
 def test_cross_patient_session_access_is_blocked():
@@ -45,4 +61,3 @@ def test_malformed_and_timeout_responses_are_graceful(monkeypatch):
         def __init__(self, **kwargs): self.models=TimeoutModels()
     monkeypatch.setattr("app.services.gemini_service.genai.Client", TimeoutClient)
     with pytest.raises(AssistantUnavailable): GeminiService("key", "model").next_question("diagnosis", "context", [])
-

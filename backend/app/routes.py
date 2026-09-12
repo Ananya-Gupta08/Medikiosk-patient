@@ -1,14 +1,44 @@
 from datetime import date, datetime
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
+from app.config import get_settings
 from app.dependencies import gemini, history_repository, repository, store
-from app.identity import Identity, current_identity
-from app.schemas import HistoryUpdateInput, MessageInput, PushSubscriptionInput
+from app.identity import SESSION_COOKIE, Identity, create_session_token, current_identity
+from app.schemas import AbhaLoginInput, HistoryUpdateInput, MessageInput, PushSubscriptionInput
 from app.services.followup import FollowupService
 from app.services.gemini_service import AssistantUnavailable
 from app.services.scheduling import all_occurrences
 from app.services.followup_scheduling import is_followup_due
 
 router = APIRouter(prefix="/api/me", tags=["patient"])
+auth_router = APIRouter(prefix="/api/auth", tags=["authentication"])
+
+
+@auth_router.post("/login")
+def login(body: AbhaLoginInput, request: Request, response: Response):
+    patient = repository().get_patient_by_abha(body.abha_number)
+    if not patient:
+        raise HTTPException(status_code=401, detail="We couldn't verify those details")
+    settings = get_settings()
+    response.set_cookie(
+        SESSION_COOKIE, create_session_token(patient.id), max_age=settings.session_max_age_seconds,
+        httponly=True, secure=request.url.scheme == "https", samesite="lax", path="/",
+    )
+    return {"patient": patient, "authentication": "abha_demo"}
+
+
+@auth_router.get("/session")
+def auth_session(identity: Identity = Depends(current_identity)):
+    patient = repository().get_patient(identity.patient_id)
+    if not patient:
+        raise HTTPException(status_code=401, detail="Please sign in to continue")
+    return {"patient": patient}
+
+
+@auth_router.post("/logout", status_code=204)
+def logout():
+    response = Response(status_code=status.HTTP_204_NO_CONTENT)
+    response.delete_cookie(SESSION_COOKIE, path="/")
+    return response
 
 
 def context(identity: Identity = Depends(current_identity)):
@@ -80,6 +110,12 @@ def mark_taken(schedule_id: str, ctx=Depends(context)):
 def followups(ctx=Depends(context)):
     identity, _, _, owned = ctx
     return owned.sessions(identity.patient_id)
+
+
+@router.get("/appointment-requests")
+def appointment_requests(ctx=Depends(context)):
+    identity, _, _, owned = ctx
+    return owned.appointment_requests(identity.patient_id)
 
 
 @router.post("/followups/start", status_code=201)

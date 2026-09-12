@@ -13,3 +13,7 @@ class PushSubscriptionInput(BaseModel):
 
 class HistoryUpdateInput(BaseModel):
     history: str = Field(min_length=1, max_length=10000)
+
+
+class AbhaLoginInput(BaseModel):
+    abha_number: str = Field(min_length=14, max_length=24, pattern=r"^[0-9 -]+$")

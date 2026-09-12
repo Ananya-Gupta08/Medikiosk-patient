@@ -6,6 +6,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     data_source: str = "mock"
     identity_source: str = "mock"
+    session_secret: str = "development-only-change-me"
+    session_max_age_seconds: int = 28_800
     database_url: str = ""
     patient_pwa_database_url: str = "sqlite:///./patient_pwa.db"
     mock_patient_id: str = "TEST_PATIENT_001"
