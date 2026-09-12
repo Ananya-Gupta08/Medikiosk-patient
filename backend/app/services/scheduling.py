@@ -18,6 +18,10 @@ def reminder_times(times_per_day: int) -> list[time]:
 
 
 def generate_schedule(medication: Medication) -> list[ScheduleOccurrence]:
+    # Never infer a course length. A missing duration must be clarified in the
+    # source prescription before calendar occurrences can be generated.
+    if medication.duration_days is None:
+        return []
     times = medication.exact_times or reminder_times(medication.times_per_day)
     source = "prescribed_exact_time" if medication.exact_times else "reminder_preference_default"
     result = []
@@ -40,4 +44,3 @@ def all_occurrences(medications: list[Medication], logs: dict[str, dict]) -> lis
             item.status = "taken"
             item.completed_at = datetime.fromisoformat(logs[item.id]["completed_at"])
     return sorted(rows, key=lambda item: item.scheduled_at)
-

@@ -26,43 +26,76 @@ Original OCR output is immutable. Patient corrections reference it through `pati
 | Follow-up sessions/messages | PostgreSQL implementation available |
 | Patient history corrections | PostgreSQL implementation available |
 | OCR document discovery | Mapped to `public.medical_documents` |
-| Clinical patient/consultation/prescription adapter | Awaiting portal schema |
+| Clinical patient/encounter/prescription adapter | Implemented for current Supabase schema |
 | Production authentication | Awaiting JWT mapping and RLS |
 | Development clinical data | Synthetic mock repository |
 
-`DATA_SOURCE=mock` currently controls clinical reads. `PATIENT_PWA_DATABASE_URL` controls Patient-PWA-owned Supabase storage.
+`DATA_SOURCE` controls clinical reads independently from `IDENTITY_SOURCE`.
+For development, `IDENTITY_SOURCE=mock` accepts only the single configured
+`MOCK_PATIENT_ID`; changing request URLs or headers cannot select another
+patient. Production must use verified Supabase JWT claims before real patient
+access is enabled. `PATIENT_PWA_DATABASE_URL` controls Patient-PWA-owned
+Supabase storage.
+
+## Confirmed clinical relationship mapping
+
+The portal schema uses `encounters` as the consultation entity:
+
+```text
+patients.id
+â””â”€â”€ encounters.patient_id
+    â”œâ”€â”€ prescriptions.encounter_id
+    â”œâ”€â”€ clinical_orders.encounter_id
+    â”œâ”€â”€ encounter_consents.encounter_id
+    â”œâ”€â”€ encounter_summaries.encounter_id
+    â”œâ”€â”€ history_fields.encounter_id
+    â”œâ”€â”€ follow_ups.encounter_id
+    â””â”€â”€ medical_documents.encounter_id
+```
+
+Additional patient ownership paths are `medical_documents.patient_id`,
+`knowledge_chunks.patient_id`, and `follow_ups.patient_id`. Knowledge chunks
+also reference `medical_documents.id`. Portal `follow_up_questions` and
+`follow_up_responses` reference `follow_ups.id`; these are not used for the
+Patient PWA's private Gemini conversation storage.
+
+The repository maps `encounters` to the internal `Consultation` model and reads
+prescription medicine entries from `prescriptions.items`. Current item keys are
+`name`, `dose`, and `frequency`. Missing duration, quantity, instructions, and
+exact times remain missing and are never inferred. Without a prescribed
+duration, medicines display but no calendar occurrences are generated.
 
 ## Required normalized clinical fields
 
 | Patient PWA field | Required | Medikiosk mapping |
 |---|---:|---|
-| `patient_id` | Yes | TBD canonical patient key |
-| `patient_name` | Yes | TBD |
+| `patient_id` | Yes | `patients.id` |
+| `patient_name` | Yes | `patients.display_name` |
 | `abha_number` | Optional | TBD with normalization rules |
 | `preferred_language` | Optional | TBD |
 | `timezone` | Recommended | TBD |
-| `consultation_id` | Yes | TBD |
-| `consultation_datetime` | Yes | TBD with timezone semantics |
-| `consultation_status` | Recommended | TBD completed-record rule |
+| `consultation_id` | Yes | `encounters.id` |
+| `consultation_datetime` | Yes | `COALESCE(encounters.submitted_at, encounters.created_at)` |
+| `consultation_status` | Recommended | `encounters.status`; patient-visible status rule still required |
 | `doctor_id` | Recommended | TBD |
 | `doctor_name` | Yes | TBD |
 | `speciality` | Optional | TBD |
 | `facility_id` | Optional | TBD |
 | `facility_name/location` | Optional | TBD |
 | `diagnosis_id` | Recommended | TBD |
-| `diagnosis` | Yes | TBD final/primary diagnosis |
+| `diagnosis` | Yes | Latest `encounter_summaries.draft_en` labelled Diagnosis/Assessment/Impression; dedicated verified diagnosis field still required |
 | `diagnosis_code` | Optional | TBD |
 | `clinical_summary` | Optional | TBD |
-| `prescription_id` | Yes | TBD |
-| `prescribed_at` | Yes | TBD |
+| `prescription_id` | Yes | `prescriptions.id` |
+| `prescribed_at` | Yes | `prescriptions.created_at` |
 | `prescription_status` | Recommended | TBD |
 | `prescription_medicine_id` | Yes | TBD stable line ID |
 | `medicine_id` | Recommended | TBD |
-| `medicine_name` | Yes | TBD |
-| `dosage/strength` | Yes | TBD |
+| `medicine_name` | Yes | `prescriptions.items[].name` |
+| `dosage/strength` | Yes | `prescriptions.items[].dose` |
 | `dose_quantity` | Yes | TBD, e.g. `1 tablet` |
 | `dose_unit` | Recommended | TBD |
-| `frequency_text` | Yes | TBD |
+| `frequency_text` | Yes | `prescriptions.items[].frequency` |
 | `times_per_day` | Strongly recommended | TBD normalized integer |
 | `duration_days` | Yes | TBD normalized integer |
 | `start_date` | Yes | TBD |

@@ -5,6 +5,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     data_source: str = "mock"
+    identity_source: str = "mock"
     database_url: str = ""
     patient_pwa_database_url: str = "sqlite:///./patient_pwa.db"
     mock_patient_id: str = "TEST_PATIENT_001"

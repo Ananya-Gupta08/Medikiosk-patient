@@ -16,10 +16,10 @@ class Medication(BaseModel):
     id: str
     name: str
     dosage: str
-    quantity: str = "1 tablet"
+    quantity: str = "As prescribed"
     frequency: str
     times_per_day: int = Field(ge=1, le=12)
-    duration_days: int = Field(ge=1, le=365)
+    duration_days: int | None = Field(default=None, ge=1, le=365)
     start_date: date
     instructions: str | None = None
     exact_times: list[time] | None = None
@@ -46,4 +46,3 @@ class ScheduleOccurrence(BaseModel):
     time_source: str
     status: str = "pending"
     completed_at: datetime | None = None
-
