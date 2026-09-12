@@ -32,17 +32,29 @@ class GeminiService:
             raise AssistantUnavailable("Gemini is not configured")
         transcript = "\n".join(f'{m["role"]}: {m["message"]}' for m in messages[-12:])
         prompt = f"Known diagnosis: {diagnosis}\nRelevant context: {context}\nConversation:\n{transcript or '(new check-in)'}"
-        try:
-            response = genai.Client(api_key=self.api_key).models.generate_content(
-                model=self.model, contents=prompt,
-                config=types.GenerateContentConfig(system_instruction=SYSTEM_INSTRUCTION, response_mime_type="application/json", temperature=0.2),
-            )
-            data = json.loads(response.text or "")
-            if not isinstance(data.get("message"), str) or data.get("status") not in {"continue", "complete"}:
-                raise ValueError("invalid structured response")
-            return AssistantReply(message=data["message"].strip(), status=data["status"])
-        except AssistantUnavailable:
-            raise
-        except Exception as exc:
-            raise AssistantUnavailable("Assistant request failed") from exc
-
+        client = genai.Client(
+            api_key=self.api_key,
+            http_options=types.HttpOptions(
+                timeout=12_000,
+                retry_options=types.HttpRetryOptions(attempts=1),
+            ),
+        )
+        last_error: Exception | None = None
+        # Flash Lite is a deterministic service fallback, not a source of any
+        # medication or scheduling decision.
+        for model in dict.fromkeys((self.model, "gemini-3.5-flash-lite")):
+            try:
+                response = client.models.generate_content(
+                    model=model, contents=prompt,
+                    config=types.GenerateContentConfig(system_instruction=SYSTEM_INSTRUCTION, response_mime_type="application/json", temperature=0.2),
+                )
+                data = json.loads(response.text or "")
+                if not isinstance(data.get("message"), str) or data.get("status") not in {"continue", "complete"}:
+                    raise ValueError("invalid structured response")
+                message = data["message"].strip()
+                if not message:
+                    raise ValueError("empty assistant message")
+                return AssistantReply(message=message, status=data["status"])
+            except Exception as exc:
+                last_error = exc
+        raise AssistantUnavailable("Assistant request failed") from last_error
