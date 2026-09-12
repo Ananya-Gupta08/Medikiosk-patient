@@ -1,4 +1,4 @@
-const BASE=(import.meta.env.VITE_API_BASE_URL||'http://localhost:8000').replace(/\/$/,'')
+const BASE=(import.meta.env.VITE_API_BASE_URL||'http://localhost:8000').trim().replace(/\/$/,'')
 export class ApiError extends Error{constructor(public status:number,message:string){super(message)}}
 async function request<T>(path:string,init?:RequestInit):Promise<T>{
   try{const response=await fetch(`${BASE}${path}`,{...init,headers:{'Content-Type':'application/json',...init?.headers},cache:'no-store'});if(!response.ok){const body=await response.json().catch(()=>({}));throw new ApiError(response.status,body.detail||'Request failed')}return response.status===204?undefined as T:response.json()}
