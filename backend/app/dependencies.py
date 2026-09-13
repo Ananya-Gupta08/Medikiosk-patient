@@ -5,6 +5,7 @@ from app.services.gemini_service import GeminiService
 from app.storage import make_pwa_store
 from app.services.mock_assistant_service import MockAssistantService
 from app.repositories.ocr_history_repository import OcrHistoryRepository
+from app.services.document_extraction_service import DocumentExtractionService
 
 
 @lru_cache
@@ -28,3 +29,9 @@ def history_repository():
     settings=get_settings()
     url=settings.database_url or settings.patient_pwa_database_url
     return OcrHistoryRepository(url)
+
+
+@lru_cache
+def document_extractor():
+    settings=get_settings()
+    return DocumentExtractionService(settings.gemini_api_key,settings.gemini_model)

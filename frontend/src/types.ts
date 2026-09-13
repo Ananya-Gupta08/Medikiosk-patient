@@ -5,3 +5,5 @@ export type Dashboard={patient:{id:string;name:string};date:string;medications:O
 export type Session={id:string;status:'active'|'complete';diagnosis_value:string;started_at:string}
 export type ChatMessage={id:string;role:'patient'|'assistant';message:string;created_at:string}
 export type HistoryDocument={id:string;document_type:string;document_date:string;confidence_score:number;extracted_history:string;patient_history:string;has_patient_edit:boolean;patient_updated_at?:string}
+export type ExtractedRecord={title:string;document_date?:string|null;summary:string;important_points:string[];medicines_mentioned:string[];test_results:string[];follow_up_actions:string[];extraction_notice:string}
+export type UploadedRecord={id:string;file_name:string;mime_type:string;file_size:number;extraction_status:'pending'|'complete'|'failed';extracted_data?:ExtractedRecord|null;patient_summary?:string|null;created_at:string;updated_at:string}

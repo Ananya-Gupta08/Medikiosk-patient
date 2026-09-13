@@ -20,6 +20,7 @@ MIGRATIONS = [
     ROOT / "migrations" / "004_patient_pwa_synthetic_ocr_history.sql",
     ROOT / "migrations" / "005_rich_history_demo_seed.sql",
     ROOT / "migrations" / "006_appointment_requests.sql",
+    ROOT / "migrations" / "007_patient_uploaded_records.sql",
 ]
 TABLES = [
     "patient_pwa_medication_logs",
@@ -28,6 +29,7 @@ TABLES = [
     "patient_pwa_followup_sessions",
     "patient_pwa_followup_messages",
     "patient_pwa_history_edits",
+    "patient_pwa_uploaded_records",
 ]
 
 

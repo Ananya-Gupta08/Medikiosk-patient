@@ -200,6 +200,14 @@ Rules:
 
 The mock patient is not inserted into real clinical tables because `medical_documents.patient_id` references the real `patients` table. Development uses `patient_pwa_demo_ocr_documents`; production continues to read `public.medical_documents`.
 
+## Patient-uploaded records
+
+Patients can add their own PDF, text, JPEG, PNG, or WebP record from the Records page. This is separate from Medikiosk-owned `medical_documents` and uses the Patient-PWA-owned `patient_pwa_uploaded_records` table. The table stores the authenticated canonical `patient_id`, original filename/type/bytes, extraction status, validated structured Gemini output, and the patient's corrected summary.
+
+The backend checks ownership on list, edit, retry, and download operations. Gemini receives only the selected document bytes and the extraction instruction; it does not receive patient identity or unrelated history. Failed extraction marks only that upload as failed and can be retried without affecting other pages. The original file and extracted fields are never used to modify a diagnosis or prescription.
+
+MVP uploads are limited to 4 MB and kept in PostgreSQL. For production scale, the database team should provide a private Supabase Storage bucket, authenticated signed-download policy, malware scanning/quarantine workflow, retention rules, and an object reference column. Existing clinical document storage must remain unchanged.
+
 ## Original document access requirements
 
 The hospital team must provide the Storage bucket, object-path format, MIME types, document categories, signed-URL generation and expiry policy, patient authorization/RLS rules, and superseded-document behavior. Medical documents must not use permanent public URLs.

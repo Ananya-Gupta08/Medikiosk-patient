@@ -6,7 +6,9 @@ A mobile-first, accessible patient application for viewing Medikiosk-created cli
 
 `frontend` (React/Vite/Tailwind/PWA) calls one FastAPI backend. The backend reads clinical data through a replaceable `MedikioskRepository`; mock and future Supabase adapters share the same interface. Scheduling and follow-up logic operate on internal domain models. SQLite stores mock-development Patient-PWA actions durably. The supplied PostgreSQL migration contains only `patient_pwa_*` tables.
 
-Gemini is an optional server-side service. Dashboard, records, medicine scheduling, calendar, and Taken tracking do not depend on it. The assistant receives only diagnosis, limited check-in context, and the current conversation. No assistant answers are sent to doctors. Follow-ups are deterministically due 1, 3, and 7 days after a visit by default; this policy is configurable in `followup_scheduling.py` and never decided by Gemini.
+Gemini is an optional server-side service. Dashboard, records, medicine scheduling, calendar, and Taken tracking do not depend on it. The assistant receives only diagnosis, limited check-in context, and the current conversation. Follow-ups are deterministically due 1, 3, and 7 days after a visit by default; this policy is configurable in `followup_scheduling.py` and never decided by Gemini.
+
+Records also supports patient-owned PDF, text, JPEG, PNG, and WebP uploads up to 4 MB. Gemini extracts a short summary and clearly grouped important information on the backend. The original upload and any patient correction are stored separately from Medikiosk clinical source data.
 
 ## Structure
 
@@ -66,7 +68,7 @@ npm run test
 npm run build
 ```
 
-Tests do not call Gemini. They cover repository normalization, schedule frequency/duration/exact times, persistent and idempotent Taken behavior, calendar reflection, identity/session isolation, follow-up context/storage/completion, and Gemini missing-key/malformed/timeout handling.
+Tests do not call Gemini. They cover repository normalization, schedule frequency/duration/exact times, persistent and idempotent Taken behavior, calendar reflection, identity/session isolation, follow-up context/storage/completion, Gemini missing-key/malformed/timeout handling, record upload validation, extraction failure isolation, editing, downloads, and cross-patient upload access.
 
 ## Real Supabase mode
 
@@ -79,3 +81,4 @@ See [the database integration contract](docs/MEDIKIOSK_DATABASE_INTEGRATION.md).
 - Push subscription capture and failure UX are implemented; scheduled delivery requires deployment of a worker/cron job and VAPID credentials. Expired endpoints should be deleted when Web Push returns 404/410.
 - The manifest uses a neutral SVG placeholder. Supply branded 192px and 512px PNG icons when the final name/identity is chosen.
 - PWA installability and notification behavior require HTTPS outside localhost and vary by browser, especially iOS.
+- Uploaded files are stored in the Patient-PWA PostgreSQL table for this MVP. A production rollout should move file bytes to a private Supabase Storage bucket and retain only protected object references in PostgreSQL.

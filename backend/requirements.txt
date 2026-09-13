@@ -5,3 +5,4 @@ httpx==0.28.1
 google-genai==1.31.0
 psycopg[binary]==3.3.2
 pywebpush==2.0.3
+python-multipart==0.0.20

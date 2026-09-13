@@ -30,6 +30,11 @@ CREATE TABLE IF NOT EXISTS patient_pwa_appointment_requests (
  reason TEXT NOT NULL, status TEXT NOT NULL CHECK(status='requested'),
  requested_at TEXT NOT NULL, created_at TEXT NOT NULL,
  UNIQUE(patient_id, consultation_reference, status));
+CREATE TABLE IF NOT EXISTS patient_pwa_uploaded_records (
+ id TEXT PRIMARY KEY, patient_id TEXT NOT NULL, file_name TEXT NOT NULL,
+ mime_type TEXT NOT NULL, file_size INTEGER NOT NULL, file_data BLOB NOT NULL,
+ extraction_status TEXT NOT NULL, extracted_data TEXT, patient_summary TEXT,
+ created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
 """
 
 
@@ -125,6 +130,40 @@ class PwaStore:
             rows = db.execute("SELECT id,consultation_reference,reason,status,requested_at FROM patient_pwa_appointment_requests WHERE patient_id=? ORDER BY requested_at DESC", (patient_id,)).fetchall()
         return [dict(row) for row in rows]
 
+    def create_uploaded_record(self, patient_id: str, file_name: str, mime_type: str, data: bytes) -> dict:
+        now, record_id = datetime.now(timezone.utc).isoformat(), str(uuid4())
+        with self.connection() as db:
+            db.execute("INSERT INTO patient_pwa_uploaded_records VALUES (?,?,?,?,?,?,?,?,?,?,?)", (record_id,patient_id,file_name,mime_type,len(data),data,"pending",None,None,now,now))
+        return self.uploaded_record(patient_id, record_id)
+
+    def uploaded_record(self, patient_id: str, record_id: str, include_file: bool = False) -> dict | None:
+        fields = "*" if include_file else "id,patient_id,file_name,mime_type,file_size,extraction_status,extracted_data,patient_summary,created_at,updated_at"
+        with self.connection() as db:
+            row = db.execute(f"SELECT {fields} FROM patient_pwa_uploaded_records WHERE id=? AND patient_id=?", (record_id,patient_id)).fetchone()
+        return self._uploaded_dict(row) if row else None
+
+    def uploaded_records(self, patient_id: str) -> list[dict]:
+        with self.connection() as db:
+            rows = db.execute("SELECT id,patient_id,file_name,mime_type,file_size,extraction_status,extracted_data,patient_summary,created_at,updated_at FROM patient_pwa_uploaded_records WHERE patient_id=? ORDER BY created_at DESC", (patient_id,)).fetchall()
+        return [self._uploaded_dict(row) for row in rows]
+
+    def save_extraction(self, patient_id: str, record_id: str, extracted: dict | None) -> dict | None:
+        with self.connection() as db:
+            db.execute("UPDATE patient_pwa_uploaded_records SET extraction_status=?,extracted_data=?,updated_at=? WHERE id=? AND patient_id=?", ("complete" if extracted else "failed",json.dumps(extracted) if extracted else None,datetime.now(timezone.utc).isoformat(),record_id,patient_id))
+        return self.uploaded_record(patient_id, record_id)
+
+    def update_uploaded_summary(self, patient_id: str, record_id: str, summary: str) -> dict | None:
+        with self.connection() as db:
+            result = db.execute("UPDATE patient_pwa_uploaded_records SET patient_summary=?,updated_at=? WHERE id=? AND patient_id=?", (summary,datetime.now(timezone.utc).isoformat(),record_id,patient_id))
+            changed = result.rowcount
+        return self.uploaded_record(patient_id, record_id) if changed else None
+
+    @staticmethod
+    def _uploaded_dict(row) -> dict:
+        result = dict(row)
+        if isinstance(result.get("extracted_data"), str): result["extracted_data"] = json.loads(result["extracted_data"])
+        return result
+
 
 class PostgresPwaStore:
     """Supabase/PostgreSQL store for Patient-PWA-owned data only."""
@@ -207,6 +246,40 @@ class PostgresPwaStore:
         with self.connection() as db:
             db.execute("SELECT id,consultation_reference,reason,status,requested_at FROM patient_pwa_appointment_requests WHERE patient_id=%s ORDER BY requested_at DESC", (patient_id,)); rows=db.fetchall()
         return [{**row,"id":str(row["id"]),"requested_at":row["requested_at"].isoformat()} for row in rows]
+
+    def create_uploaded_record(self, patient_id: str, file_name: str, mime_type: str, data: bytes) -> dict:
+        record_id=str(uuid4())
+        with self.connection() as db:
+            db.execute("INSERT INTO patient_pwa_uploaded_records (id,patient_id,file_name,mime_type,file_size,file_data,extraction_status,created_at,updated_at) VALUES (%s,%s,%s,%s,%s,%s,'pending',now(),now())", (record_id,patient_id,file_name,mime_type,len(data),data))
+        return self.uploaded_record(patient_id,record_id)
+
+    def uploaded_record(self, patient_id: str, record_id: str, include_file: bool = False) -> dict | None:
+        fields="*" if include_file else "id,patient_id,file_name,mime_type,file_size,extraction_status,extracted_data,patient_summary,created_at,updated_at"
+        with self.connection() as db:
+            db.execute(f"SELECT {fields} FROM patient_pwa_uploaded_records WHERE id=%s AND patient_id=%s",(record_id,patient_id)); row=db.fetchone()
+        return self._uploaded_dict(row) if row else None
+
+    def uploaded_records(self, patient_id: str) -> list[dict]:
+        with self.connection() as db:
+            db.execute("SELECT id,patient_id,file_name,mime_type,file_size,extraction_status,extracted_data,patient_summary,created_at,updated_at FROM patient_pwa_uploaded_records WHERE patient_id=%s ORDER BY created_at DESC",(patient_id,)); rows=db.fetchall()
+        return [self._uploaded_dict(row) for row in rows]
+
+    def save_extraction(self, patient_id: str, record_id: str, extracted: dict | None) -> dict | None:
+        with self.connection() as db:
+            db.execute("UPDATE patient_pwa_uploaded_records SET extraction_status=%s,extracted_data=%s::jsonb,updated_at=now() WHERE id=%s AND patient_id=%s",("complete" if extracted else "failed",json.dumps(extracted) if extracted else None,record_id,patient_id))
+        return self.uploaded_record(patient_id,record_id)
+
+    def update_uploaded_summary(self, patient_id: str, record_id: str, summary: str) -> dict | None:
+        with self.connection() as db:
+            db.execute("UPDATE patient_pwa_uploaded_records SET patient_summary=%s,updated_at=now() WHERE id=%s AND patient_id=%s",(summary,record_id,patient_id)); changed=db.rowcount
+        return self.uploaded_record(patient_id,record_id) if changed else None
+
+    @staticmethod
+    def _uploaded_dict(row) -> dict:
+        result=dict(row); result["id"]=str(result["id"])
+        for key in ("created_at","updated_at"):
+            if result.get(key): result[key]=result[key].isoformat()
+        return result
 
 
 def make_pwa_store(url: str):
